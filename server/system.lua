@@ -1,8 +1,18 @@
-local db = require 'server.db'
+local database = require 'server.database'
+
+local function sortPlayerIdentifiers(source)
+    return identifiers = {
+        license = GetPlayerIdentifierByType(source, 'license')
+        license2 = GetPlayerIdentifierByType(source, 'license2')
+        fivem = GetPlayerIdentifierByType(source, 'fivem')
+        discord = GetPlayerIdentifierByType(source, 'discord')
+        steam = GetPlayerIdentifierByType(source, 'steam')
+    },
+end
 
 local function playerConnecting(name, _, deferrals)
     local player = source
-    local rawIds = GetPlayerIdentifiers(player)
+    local identifiers = sortPlayerIdentifiers(player)
     
     deferrals.defer()
 
@@ -10,22 +20,20 @@ local function playerConnecting(name, _, deferrals)
 
     deferrals.update(('Hi %s. We are checking your identifiers for login.'):format(name))
 
-    local identifiers = {}
-    for i = 1, #rawIds do
-        local id = rawIds[i]
-        local sepPos = string.find(id, ':')
-        if sepPos then
-            local cat = string.sub(id, 1, sepPos - 1)
-            identifiers[cat] = id
-        end
+    local banned, reason = database.CheckBanned(identifiers)
+    local inserted = database.InsertUser(name, identifiers)
+
+    if banned then
+        deferrals.done(('Banned for reason: %s. If you think is an error open an unban ticket in %s'):format(reason, GetConvar('Discord', 'https://discord.gg/WKtk65yBC6')))
+        return
     end
 
-    local result = db.InsertUser(identifiers)
-    if result then
-        deferrals.done()
-    else
-        deferrals.done('Unable to connect to the server')
+    if not inserted then
+        deferrals.done('Unable to connect to the server, a problem occurred registering the identifiers')
+        return
     end
+    
+    deferrals.done()
 end
 
 AddEventHandler('playerConnecting', playerConnecting)

@@ -1,8 +1,9 @@
+local database = require 'server.modules.database'
 local playerClass = require 'server.modules.player'
 
 Players = {}
 
-local function OnPlayerConnecting(playerName, _, deferrals)
+AddEventHandler('playerConnecting', function(playerName, _, deferrals)
     local playerId = source
 
     deferrals.defer()
@@ -14,10 +15,18 @@ local function OnPlayerConnecting(playerName, _, deferrals)
     Wait(0)
 
     --- Rejected
-    deferrals.done('Rejected')
+    -- deferrals.done('Rejected')
 
     --- Accepted
     deferrals.done()
-end
+end)
 
-AddEventHandler('playerConnecting', OnPlayerConnecting)
+AddEventHandler('playerDropped', function(reason)
+    local playerId = source
+
+    if not Players[playerId] then return end
+
+    database.SavePlayer(Players[playerId])
+
+    Players[playerId] = nil
+end)
